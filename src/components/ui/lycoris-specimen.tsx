@@ -681,7 +681,7 @@ export default function LycorisSpecimen({
   seed = 7,
   alive = true,
   guided = true,
-  guideDuration = 1200,
+  guideDuration = 900,
   guideSteps = 3,
   className = "",
 }: LycorisSpecimenProps) {
@@ -811,13 +811,17 @@ export default function LycorisSpecimen({
     let W = 1
     let H = 1
     let dpr = 1
+    let quality = isTouch ? 1 : Math.min(window.devicePixelRatio || 1, 1.5)
+    let frames = 0
+    let ema = 16.7
+    let lastAdapt = 0
     const chars = hideText ? [] : Array.from(word.querySelectorAll<HTMLElement>("[data-ch]"))
     let nat: { x: number; y: number; w: number }[] = []
     const measure = () => {
       const sr = stage.getBoundingClientRect()
       W = Math.max(1, sr.width)
       H = Math.max(1, sr.height)
-      dpr = isTouch ? 1 : Math.min(window.devicePixelRatio || 1, 1.5)
+      dpr = quality
       const cw = Math.round(W * dpr)
       const ch = Math.round(H * dpr)
       if (canvas.width !== cw || canvas.height !== ch) {
@@ -891,11 +895,11 @@ export default function LycorisSpecimen({
     const glide = (to: number) => {
       const from = window.scrollY
       const t0 = performance.now()
-      const DUR = isTouch ? 650 : Math.max(300, look.current.guideDuration)
+      const DUR = isTouch ? (window.innerWidth >= 768 ? 700 : 550) : Math.max(300, look.current.guideDuration)
       snapping = true
       const step = (now: number) => {
         const t = clamp01((now - t0) / DUR)
-        window.scrollTo(0, from + (to - from) * easeInOut(t))
+        window.scrollTo(0, from + (to - from) * (1 - Math.pow(1 - t, 3)))
         if (t < 1) snapRaf = requestAnimationFrame(step)
         else {
           snapping = false
@@ -931,16 +935,31 @@ export default function LycorisSpecimen({
       if (guide(Math.sign(e.deltaY))) e.preventDefault()
     }
     let touchY = 0
-    const onTouchStart = (e: TouchEvent) => { touchY = e.touches[0].clientY }
+    let touchHandled = false
+    const onTouchStart = (e: TouchEvent) => {
+      touchY = e.touches[0].clientY
+      touchHandled = false
+    }
     const onTouchMove = (e: TouchEvent) => {
+      if (touchHandled) return
       const dy = touchY - e.touches[0].clientY
       if (Math.abs(dy) < 10) return
-      if (guide(Math.sign(dy))) e.preventDefault()
-      touchY = e.touches[0].clientY
+      touchHandled = true
+      guide(Math.sign(dy))
     }
+    /* inside the hero the stage blocks native panning (so the guided glide owns it);
+       at the end of the hero native scrolling takes over for the rest of the page */
+    const syncTouch = () => {
+      if (!isTouch) return
+      const { end } = heroRange()
+      const lock = look.current.guided && !look.current.reduced && window.scrollY < end - 2
+      stage.style.touchAction = lock ? "none" : "pan-y"
+    }
+    window.addEventListener("scroll", syncTouch, { passive: true })
+    syncTouch()
     window.addEventListener("wheel", onWheel, { passive: false })
     window.addEventListener("touchstart", onTouchStart, { passive: true })
-    window.addEventListener("touchmove", onTouchMove, { passive: false })
+    window.addEventListener("touchmove", onTouchMove, { passive: true })
 
     // ---- loop -------------------------------------------------------------------
     let raf = 0
@@ -956,8 +975,19 @@ export default function LycorisSpecimen({
 
     const frame = (now: number) => {
       raf = requestAnimationFrame(frame)
-      const dt = Math.min(0.05, (now - last) / 1000)
+      const ft = now - last
+      const dt = Math.min(0.05, ft / 1000)
       last = now
+      /* adaptive quality: if frames run long, shrink the render buffer step by step */
+      if (ft < 250) {
+        frames++
+        ema += (ft - ema) * 0.08
+        if (frames > 40 && now - lastAdapt > 900 && ema > 24 && quality > 0.55) {
+          quality = Math.max(0.55, quality * 0.8)
+          lastAdapt = now
+          measure()
+        }
+      }
       const L = look.current
       const moving = L.alive && !L.reduced
       if (moving) time += dt
@@ -983,7 +1013,7 @@ export default function LycorisSpecimen({
       scrollEnergy += (targetEnergy - scrollEnergy) * (1 - Math.exp(-dt * (targetEnergy > scrollEnergy ? 12 : 3.4)))
       const targetBank = Math.max(-0.16, Math.min(0.16, deltaP / Math.max(dt, 0.001) * 0.22))
       scrollBank += (targetBank - scrollBank) * (1 - Math.exp(-dt * 5.5))
-      prog01 = prog01 < 0 || L.reduced ? p : prog01 + (p - prog01) * (1 - Math.exp(-dt * (isTouch ? 18 : 12)))
+      prog01 = prog01 < 0 || L.reduced || snapping ? p : prog01 + (p - prog01) * (1 - Math.exp(-dt * (isTouch ? 18 : 12)))
       const coord = sceneCoord(prog01, SCENES, HOLD)
 
       const tall = H > W * 1.05
@@ -1164,6 +1194,7 @@ export default function LycorisSpecimen({
       window.removeEventListener("wheel", onWheel)
       window.removeEventListener("touchstart", onTouchStart)
       window.removeEventListener("touchmove", onTouchMove)
+      window.removeEventListener("scroll", syncTouch)
       io.disconnect()
       ro.disconnect()
       document.removeEventListener("visibilitychange", onVis)
