@@ -1,0 +1,328 @@
+
+@import url("https://fonts.googleapis.com/css2?family=Great+Vibes&family=Tiro+Tamil&family=Mukta+Malar:wght@400;500;600;700&family=Noto+Sans+Tamil:wght@400;600;700&family=Noto+Serif+Tamil:wght@400;600;700&family=Playfair+Display:wght@400;600;700&display=swap");
+
+@import "tailwindcss";
+
+@theme {
+  /* Royal traditional colors */
+  --color-maroon-500: #8c2a3b;
+  --color-maroon-600: #73202f;
+  --color-maroon-700: #5a1622;
+  --color-maroon-800: #45101a;
+  --color-maroon-900: #33090f;
+  --color-maroon-950: #24060c;
+
+  --color-gold-100: #f8ecc9;
+  --color-gold-200: #f2dfa6;
+  --color-gold-300: #e9cd7f;
+  --color-gold-400: #dcb85a;
+  --color-gold-500: #c9a227;
+  --color-gold-600: #a8811f;
+  --color-gold-700: #84641a;
+
+  --color-cream-50: #fdfaf1;
+  --color-cream-100: #f8f1df;
+  --color-cream-200: #f1e4c6;
+  --color-cream-300: #e5d2a6;
+  --color-cream-400: #d3b87e;
+
+  --font-display: "Tiro Tamil", "Noto Serif Tamil", ui-serif, serif;
+  --font-body: "Mukta Malar", "Noto Sans Tamil", "Tiro Tamil", ui-sans-serif, sans-serif;
+
+  --animate-floaty: floaty 7s ease-in-out infinite;
+  --animate-flicker: flicker 3.2s ease-in-out infinite;
+  --animate-gleam: gleam 6s linear infinite;
+  --animate-ring: ringpulse 2.4s ease-out infinite;
+  --animate-spinslow: spin 14s linear infinite;
+}
+
+/* Animations */
+@keyframes floaty {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-12px);
+  }
+}
+
+@keyframes flicker {
+  0%,
+  100% {
+    opacity: 0.75;
+    transform: scale(1);
+  }
+
+  25% {
+    opacity: 0.9;
+    transform: scale(1.06);
+  }
+
+  50% {
+    opacity: 0.62;
+    transform: scale(0.97);
+  }
+
+  75% {
+    opacity: 0.95;
+    transform: scale(1.04);
+  }
+}
+
+@keyframes gleam {
+  0% {
+    background-position: -200% 50%;
+  }
+
+  100% {
+    background-position: 200% 50%;
+  }
+}
+
+@keyframes ringpulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(201, 162, 39, 0.45);
+  }
+
+  70% {
+    box-shadow: 0 0 0 14px rgba(201, 162, 39, 0);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(201, 162, 39, 0);
+  }
+}
+
+@keyframes rayspin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes dustfloat {
+  0% {
+    transform: translate3d(0, 0, 0);
+    opacity: 0;
+  }
+
+  10% {
+    opacity: 1;
+  }
+
+  85% {
+    opacity: 0.9;
+  }
+
+  100% {
+    transform: translate3d(0, -104vh, 0);
+    opacity: 0;
+  }
+}
+
+@keyframes marquee {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes goldGlow {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 8px rgba(233, 205, 127, 0.25));
+  }
+
+  50% {
+    filter: drop-shadow(0 0 16px rgba(233, 205, 127, 0.55));
+  }
+}
+
+/* Base styles */
+@layer base {
+  html {
+    scroll-behavior: auto;
+    min-height: 100%;
+  }
+
+  /*
+   * Lenis compatibility.
+   * The intro lock is removed by App.tsx when the intro completes.
+   */
+  html.lenis,
+  html.lenis body {
+    height: auto;
+  }
+
+  html.lenis.lenis-smooth {
+    scroll-behavior: auto !important;
+  }
+
+  html.lenis.lenis-stopped,
+  html.lenis.lenis-stopped body {
+    overflow: hidden;
+  }
+
+  body {
+    min-height: 100%;
+    margin: 0;
+    background-color: #24060c;
+    color: #f8f1df;
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+
+    /*
+     * Clip horizontal overflow without intentionally creating
+     * a separate horizontal scrolling container.
+     */
+    overflow-x: clip;
+  }
+
+  ::selection {
+    background: #c9a227;
+    color: #24060c;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #24060c;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #c9a227, #73202f);
+    border-radius: 999px;
+    border: 2px solid #24060c;
+  }
+
+  section[id] {
+    scroll-margin-top: 84px;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    line-height: 1.2;
+  }
+
+  /* Preserve Tamil vowel marks */
+  :lang(ta) {
+    letter-spacing: normal;
+    line-height: 1.6;
+  }
+}
+
+/* Gold text */
+.gold-text,
+.gold-text-shine {
+  font-family: "Noto Sans Tamil", "Playfair Display", serif;
+  font-kerning: normal;
+  font-feature-settings: "kern" 1, "mark" 1, "mkmk" 1;
+  text-rendering: geometricPrecision;
+  color: #e9cd7f;
+  -webkit-text-fill-color: #e9cd7f;
+  -webkit-text-stroke: 0;
+  text-shadow: none;
+}
+
+.gold-text-shine {
+  filter: drop-shadow(0 0 10px rgba(233, 205, 127, 0.4));
+  animation: goldGlow 4s ease-in-out infinite;
+}
+
+/* Velvet background */
+.velvet {
+  background-color: #2b070f;
+  background-image:
+    radial-gradient(
+      1100px 700px at 50% -8%,
+      rgba(140, 42, 59, 0.5),
+      transparent 62%
+    ),
+    radial-gradient(
+      900px 620px at 50% 112%,
+      rgba(90, 22, 34, 0.55),
+      transparent 65%
+    ),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='84' height='84' viewBox='0 0 84 84'%3E%3Cpath d='M42 3 L81 42 42 81 3 42Z' fill='none' stroke='%23ffffff' stroke-opacity='.05'/%3E%3Cpath d='M42 21 L63 42 42 63 21 42Z' fill='none' stroke='%23e9cd7f' stroke-opacity='.05'/%3E%3Ccircle cx='42' cy='42' r='2.4' fill='%23e9cd7f' fill-opacity='.05'/%3E%3C/svg%3E");
+}
+
+/* Cream paper background */
+.paper {
+  background-color: #f6eeda;
+  background-image:
+    radial-gradient(
+      1000px 620px at 50% -10%,
+      rgba(255, 255, 255, 0.85),
+      transparent 60%
+    ),
+    radial-gradient(
+      880px 600px at 50% 112%,
+      rgba(211, 184, 126, 0.28),
+      transparent 62%
+    ),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='84' height='84' viewBox='0 0 84 84'%3E%3Cpath d='M42 3 L81 42 42 81 3 42Z' fill='none' stroke='%2384641a' stroke-opacity='.07'/%3E%3Ccircle cx='42' cy='42' r='2.4' fill='%2384641a' fill-opacity='.06'/%3E%3C/svg%3E");
+}
+
+/* Double gold border */
+.gilded {
+  border: 1px solid rgba(201, 162, 39, 0.55);
+  outline: 1px solid rgba(201, 162, 39, 0.28);
+  outline-offset: 6px;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Rotating golden rays */
+.gold-rays {
+  background: repeating-conic-gradient(
+    from 0deg,
+    rgba(233, 205, 127, 0.5) 0deg 2.5deg,
+    transparent 2.5deg 13deg
+  );
+
+  -webkit-mask-image: radial-gradient(
+    circle,
+    black 0%,
+    rgba(0, 0, 0, 0.5) 42%,
+    transparent 66%
+  );
+
+  mask-image: radial-gradient(
+    circle,
+    black 0%,
+    rgba(0, 0, 0, 0.5) 42%,
+    transparent 66%
+  );
+}
+
+/* Arch-shaped frames */
+.arch-shape {
+  border-top-left-radius: 999px;
+  border-top-right-radius: 999px;
+}
+
+/* Fine gold line */
+.hairline-gold {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(201, 162, 39, 0.7),
+    transparent
+  );
+}
+
+/* Accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .gold-text-shine {
+    animation: none;
+  }
+}
