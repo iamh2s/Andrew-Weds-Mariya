@@ -1,11 +1,15 @@
-
-import { useMemo } from "react";
-import { motion, useReducedMotion } from "framer-motion";
+import { useMemo, useRef } from "react";
+import type { MotionValue, ReactNode } from "react";
+import {
+  motion,
+  useReducedMotion,
+  useScroll,
+  useTransform,
+} from "framer-motion";
 import { wedding } from "../data/wedding";
-import { GoldCross, Flourish, Corner, MonogramCrest } from "./Ornaments";
-import LycorisSpecimen from "@/components/ui/lycoris-specimen";
+import { GoldCross, Flourish, Corner } from "./Ornaments";
 
-const NAMES_EN = {
+const NAMES = {
   groom: "ஆண்ட்ரூ",
   bride: "மரியா",
 };
@@ -16,29 +20,33 @@ const NAME_STYLE = {
   letterSpacing: "0",
 } as const;
 
-const WEDS_STYLE = {
+const CONNECTOR_STYLE = {
   fontFamily: '"Noto Serif Tamil", "Tiro Tamil", serif',
   fontStyle: "normal",
   fontWeight: 600,
 } as const;
 
-
 const EASE = [0.22, 1, 0.36, 1] as const;
 
-const PHOTO_LAYOUT: "stagger" | "overlap" | "side" = "stagger";
+/** Number of scenes. Keep in sync with the layers below. */
+const SCENES = 3;
 
-const THIRD_IMAGE = "/images/gallery-1.jpg";
+/** Half-width of each cover window, as a fraction of the whole scroll. */
+const COVER_SPAN = 0.12;
 
-const HERO_IMAGES = [
-  { src: wedding.heroImage, alt: "நிச்சயதார்த்த ஜோடியின் அழகிய புகைப்படம்" },
-  { src: wedding.journeyImage, alt: "நிச்சயதார்த்த ஜோடியின் இனிய தருணம்" },
-  { src: THIRD_IMAGE, alt: "நிச்சயதார்த்த விழாவின் அழகிய தருணம்" },
-].slice(0, 3);
+/** Vertical scroll distance that drives the story. */
+const SCROLL_HEIGHT = "340svh";
+
+/** Scroll window in which scene `index` slides up over the previous one. */
+function coverWindow(index: number): [number, number] {
+  const center = index / SCENES;
+  return [center - COVER_SPAN, center + COVER_SPAN];
+}
 
 const MAX_MOTES = 6;
 
 function GoldMotes({ count = 5 }: { count?: number }) {
-  const all = useMemo(
+  const motes = useMemo(
     () =>
       Array.from({ length: MAX_MOTES }, (_, i) => ({
         id: i,
@@ -55,7 +63,7 @@ function GoldMotes({ count = 5 }: { count?: number }) {
       className="pointer-events-none absolute inset-0 z-[3] overflow-hidden"
       aria-hidden
     >
-      {all.slice(0, count).map((m) => (
+      {motes.slice(0, count).map((m) => (
         <span
           key={m.id}
           className="absolute rounded-full will-change-transform"
@@ -75,351 +83,426 @@ function GoldMotes({ count = 5 }: { count?: number }) {
   );
 }
 
-function AnimatedName({
-  text,
+/** Fades and rises content in once the hero is active. */
+function Rise({
+  active,
   delay = 0,
-}: {
-  text: string;
-  delay?: number;
-}) {
-  const reduce = useReducedMotion();
-
-  return (
-    <motion.span
-      className="inline-block max-w-full px-2 pb-2"
-      initial={reduce ? false : { opacity: 0, y: 22, scale: 0.97 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{
-        duration: reduce ? 0 : 0.75,
-        delay: reduce ? 0 : delay,
-        ease: EASE,
-      }}
-    >
-      {text}
-    </motion.span>
-  );
-}
-
-function HeroPhoto({
-  src,
-  alt,
-  delay = 0,
-  flip = false,
   className = "",
+  children,
 }: {
-  src: string;
-  alt: string;
+  active: boolean;
   delay?: number;
-  flip?: boolean;
   className?: string;
+  children: ReactNode;
 }) {
   const reduce = useReducedMotion();
 
   return (
     <motion.div
-      initial={reduce ? false : { opacity: 0, y: 22, rotate: flip ? 3 : -3 }}
-      animate={{ opacity: 1, y: 0, rotate: flip ? 2 : -2 }}
-      transition={{ duration: reduce ? 0 : 0.8, delay, ease: EASE }}
-      className={`relative z-10 w-[clamp(76px,min(24vw,19svh),190px)] shrink-0 will-change-transform ${className}`}
+      className={className}
+      initial={reduce ? false : { opacity: 0, y: 20 }}
+      animate={active || reduce ? { opacity: 1, y: 0 } : undefined}
+      transition={{
+        duration: reduce ? 0 : 1.2,
+        delay: reduce ? 0 : delay,
+        ease: EASE,
+      }}
     >
-      <Corner
-        className="absolute -left-1.5 -top-1.5 z-10 opacity-90 sm:-left-2 sm:-top-2"
-        size={28}
-      />
-      <Corner
-        className="absolute -right-1.5 -top-1.5 z-10 -scale-x-100 opacity-90 sm:-right-2 sm:-top-2"
-        size={28}
-      />
-      <Corner
-        className="absolute -bottom-1.5 -left-1.5 z-10 -scale-y-100 opacity-90 sm:-bottom-2 sm:-left-2"
-        size={28}
-      />
-      <Corner
-        className="absolute -bottom-1.5 -right-1.5 z-10 -scale-100 opacity-90 sm:-bottom-2 sm:-right-2"
-        size={28}
-      />
-
-      <div className="arch-shape rounded-b-[12px] bg-[linear-gradient(140deg,#f2dfa6,#c9a227_35%,#84641a_60%,#e9cd7f_85%,#a8811f)] p-[2px] shadow-[0_20px_44px_-14px_rgba(0,0,0,0.9)] sm:rounded-b-[14px] sm:p-[2.5px] sm:shadow-[0_28px_60px_-16px_rgba(0,0,0,0.9)]">
-        <div className="arch-shape rounded-b-[10px] bg-maroon-950 p-[4px] sm:rounded-b-[12px] sm:p-[5px]">
-          <div className="arch-shape relative overflow-hidden rounded-b-[7px] border border-gold-400/40 sm:rounded-b-[8px]">
-            <img
-              src={src}
-              alt={alt}
-              loading="eager"
-              decoding="async"
-              draggable={false}
-              className="aspect-[3/4] w-full object-cover"
-            />
-
-            <div className="pointer-events-none absolute inset-0 shadow-[inset_0_0_40px_rgba(36,6,12,0.55)] sm:shadow-[inset_0_0_50px_rgba(36,6,12,0.55)]" />
-
-          </div>
-        </div>
-      </div>
+      {children}
     </motion.div>
   );
 }
 
-function Monogram({ className = "" }: { className?: string }) {
+/** Reveals text from left to right with a clip. */
+function Wipe({
+  active,
+  delay = 0,
+  className = "",
+  children,
+}: {
+  active: boolean;
+  delay?: number;
+  className?: string;
+  children: ReactNode;
+}) {
   const reduce = useReducedMotion();
 
   return (
-    <div
-      className={`flex shrink-0 flex-col items-center gap-1.5 sm:gap-2 ${className}`}
+    <motion.span
+      className={`inline-block ${className}`}
+      initial={reduce ? false : { clipPath: "inset(0 100% 0 0)", opacity: 0 }}
+      animate={
+        active || reduce
+          ? { clipPath: "inset(0 0% 0 0)", opacity: 1 }
+          : undefined
+      }
+      transition={{
+        duration: reduce ? 0 : 1.8,
+        delay: reduce ? 0 : delay,
+        ease: EASE,
+      }}
     >
+      {children}
+    </motion.span>
+  );
+}
+
+type LayerProps = {
+  index: number;
+  t: MotionValue<number>;
+  src: string;
+  alt: string;
+  position?: string;
+  reduce: boolean | null;
+  active: boolean;
+  opening?: boolean;
+  align?: "center" | "bottom";
+  children: ReactNode;
+};
+
+/**
+ * One scene in the stack. Scene 0 is the base. Each later scene slides up
+ * over the one before it, and the scene underneath dims as it's covered.
+ * `align="bottom"` places the text in the lower part of the frame so it
+ * doesn't cover faces in the photo.
+ */
+function Layer({
+  index,
+  t,
+  src,
+  alt,
+  position = "center",
+  reduce,
+  active,
+  opening = false,
+  align = "center",
+  children,
+}: LayerProps) {
+  const [enterStart, enterEnd] = coverWindow(index);
+  const [nextStart, nextEnd] = coverWindow(index + 1);
+
+  const y = useTransform(t, [enterStart, enterEnd], ["100%", "0%"]);
+  const dim = useTransform(t, [nextStart, nextEnd], [0, 0.7]);
+  const photoScale = useTransform(t, [enterStart, enterEnd], [1.12, 1]);
+  const textY = useTransform(t, [enterStart, enterEnd], [50, 0]);
+
+  const isBase = index === 0;
+  const isLast = index === SCENES - 1;
+  const introPlays = opening && !reduce;
+
+  return (
+    <motion.section
+      className={
+        reduce
+          ? "relative min-h-[100svh] w-full overflow-hidden"
+          : "absolute inset-0 overflow-hidden"
+      }
+      style={
+        reduce
+          ? undefined
+          : {
+              zIndex: index + 1,
+              y: isBase ? 0 : y,
+            }
+      }
+    >
+      {/* Entering edge shadow, so the slide reads as a cut */}
+      {!isBase && !reduce && (
+        <div className="pointer-events-none absolute inset-x-0 -top-24 z-[5] h-24 bg-gradient-to-t from-transparent to-black/70" />
+      )}
+
+      {/* Opening pull-back: close zoom that eases out to normal */}
       <motion.div
-        initial={reduce ? false : { opacity: 0, scale: 0.4, rotate: -25 }}
-        animate={{ opacity: 1, scale: 1, rotate: 0 }}
-        transition={{
-          duration: reduce ? 0 : 1.1,
-          delay: 0.75,
-          ease: EASE,
-        }}
+        className="absolute inset-0"
+        initial={introPlays ? { scale: 1.4 } : false}
+        animate={introPlays ? { scale: active ? 1 : 1.4 } : undefined}
+        transition={{ duration: 4.5, ease: EASE }}
       >
-        <MonogramCrest
-          size={56}
-          className="drop-shadow-[0_0_14px_rgba(201,162,39,0.55)] sm:drop-shadow-[0_0_16px_rgba(201,162,39,0.55)]"
-        />
+        <motion.div
+          className="absolute inset-0 will-change-transform"
+          style={reduce ? undefined : { scale: isBase ? undefined : photoScale }}
+        >
+          <img
+            src={src}
+            alt={alt}
+            loading="eager"
+            decoding="async"
+            draggable={false}
+            className="absolute inset-0 h-full w-full object-cover"
+            style={{ objectPosition: position }}
+          />
+        </motion.div>
       </motion.div>
 
+      {/* Tone and vignette */}
+      <div className="absolute inset-0 bg-gradient-to-b from-maroon-950/70 via-maroon-950/35 to-maroon-950/90" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_70%_55%_at_50%_45%,transparent_40%,rgba(20,4,8,0.7)_100%)]" />
+
+      {/* Extra shade behind bottom-aligned text */}
+      {align === "bottom" && !reduce && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[5] h-[55%] bg-gradient-to-t from-maroon-950/95 via-maroon-950/60 to-transparent" />
+      )}
+
+      {/* Dim as the next scene covers this one */}
+      {!reduce && !isLast && (
+        <motion.div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 z-[6] bg-black"
+          style={{ opacity: dim }}
+        />
+      )}
+
       <motion.div
-        initial={reduce ? false : { opacity: 0, scaleX: 0 }}
-        animate={{ opacity: 1, scaleX: 1 }}
-        transition={{
-          duration: reduce ? 0 : 0.8,
-          delay: 1.15,
-          ease: EASE,
-        }}
+        className={`absolute inset-0 z-10 flex flex-col items-center px-6 text-center ${
+          align === "bottom" ? "justify-end pb-28 sm:pb-32" : "justify-center"
+        }`}
+        style={reduce ? undefined : { y: textY }}
       >
-        <Flourish width={72} />
+        {children}
       </motion.div>
-    </div>
+    </motion.section>
   );
 }
 
 export default function Hero({ active }: { active: boolean }) {
   const reduce = useReducedMotion();
-
+  const ref = useRef<HTMLDivElement>(null);
   const engagement = wedding.engagement;
 
+  const { scrollYProgress } = useScroll({
+    target: ref,
+    offset: ["start start", "end end"],
+  });
+
   return (
-    <div id="home" className="relative w-full">
-      <LycorisSpecimen
-        name={`${NAMES_EN.groom} ${NAMES_EN.bride}`}
-        studio="இரு குடும்பத்தினர்"
-        hideText
-        travel
-        backgroundImage="/images/gallery-3.jpg"
-        images={HERO_IMAGES}
-        description={`${wedding.heroLine}. ${wedding.groom.name} மற்றும் ${wedding.bride.name} ஆகியோரின் நிச்சயதார்த்த விழாவிற்கு உங்கள் பிரசன்னத்துடன் ஆசீர்வாதம் பெற மரியாதையுடன் அழைக்கிறோம்.`}
-        specs={[
-          `நிச்சயதார்த்தம்: ${engagement.day}`,
-          `${engagement.venue}, ${wedding.city}`,
-          `விழா நேரம்: ${engagement.time}`,
-          engagement.address,
-          "அன்புடன் வரவேற்கிறோம்",
-        ]}
-        links={[
-          { label: `நிச்சயதார்த்தம் · ${engagement.day}` },
-          { label: `${engagement.time} · ${wedding.city}` },
-        ]}
-        sceneScroll={1}
-        height="100svh"
-      />
-
-      {active && (
-        <motion.div
-          className="pointer-events-none absolute inset-0 z-20"
-          style={{ opacity: 0.72 }}
+    <div
+      id="home"
+      ref={ref}
+      className="relative w-full"
+      style={{ height: reduce ? "auto" : SCROLL_HEIGHT }}
+    >
+      <div
+        className={
+          reduce
+            ? "relative w-full bg-maroon-950"
+            : "sticky top-0 h-[100svh] w-full overflow-hidden bg-maroon-950"
+        }
+      >
+        {/* Scene 1: groom, base layer with the cinematic opening */}
+        <Layer
+          index={0}
+          t={scrollYProgress}
+          src={wedding.heroImage}
+          alt={NAMES.groom}
+          position="center 25%"
+          reduce={reduce}
+          active={active}
+          opening
+          align="bottom"
         >
-          <div className="absolute inset-0 bg-gradient-to-b from-maroon-950/80 via-maroon-950/50 to-maroon-950/90" />
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_75%_55%_at_50%_38%,rgba(140,42,59,0.38),transparent_70%)]" />
-        </motion.div>
-      )}
+          <Rise active={active} delay={0.9} className="mb-3">
+            <GoldCross
+              size={46}
+              className="mx-auto drop-shadow-[0_0_12px_rgba(233,205,127,0.55)]"
+            />
+          </Rise>
 
-      {active && !reduce && (
-        <div className="pointer-events-none absolute inset-x-0 top-0 z-[21] h-[100svh] overflow-hidden">
-          <GoldMotes count={5} />
-        </div>
-      )}
+          <motion.p
+            initial={reduce ? false : { opacity: 0, letterSpacing: "0.6em" }}
+            animate={
+              active || reduce
+                ? { opacity: 1, letterSpacing: "0.3em" }
+                : undefined
+            }
+            transition={{
+              duration: reduce ? 0 : 2.4,
+              delay: reduce ? 0 : 1.1,
+              ease: EASE,
+            }}
+            className="mb-4 text-[10px] font-semibold text-gold-300/90 sm:text-xs"
+          >
+            நிச்சயதார்த்த விழா அழைப்பிதழ்
+          </motion.p>
 
-      {active && (
-        <div
-          className="absolute inset-x-0 top-0 z-[22] h-[100svh] overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-        >
-          <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col items-center justify-center px-4 pb-[max(5rem,env(safe-area-inset-bottom))] pt-[max(3.5rem,env(safe-area-inset-top))] sm:px-6 md:pb-14 md:pt-20">
-            <motion.div
-              initial={reduce ? false : { opacity: 0, scale: 0.5 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{
-                duration: reduce ? 0 : 1.1,
-                delay: 0.3,
-                ease: EASE,
-              }}
-              className="relative mb-2 flex h-14 w-14 items-center justify-center sm:mb-3 sm:h-[72px] sm:w-[72px] [@media(max-height:560px)]:hidden"
-            >
-              <div
-                className="gold-rays absolute inset-[-14px] rounded-full opacity-65 will-change-transform sm:inset-[-20px]"
-                style={
-                  reduce
-                    ? undefined
-                    : { animation: "rayspin 36s linear infinite" }
-                }
-              />
-              <div className="absolute inset-1 rounded-full bg-gold-400/10 blur-xl" />
-              <GoldCross
-                size={46}
-                className="drop-shadow-[0_0_10px_rgba(233,205,127,0.55)] sm:drop-shadow-[0_0_12px_rgba(233,205,127,0.55)]"
-              />
-            </motion.div>
-
-            <motion.p
-              initial={reduce ? false : { opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{
-                duration: reduce ? 0 : 1.1,
-                delay: 0.5,
-                ease: EASE,
-              }}
-              className="mb-4 text-center text-[10px] font-semibold tracking-[0.18em] text-gold-300/90 sm:mb-5 sm:text-xs sm:tracking-[0.3em]"
-            >
-              நிச்சயதார்த்த விழா அழைப்பிதழ்
-            </motion.p>
-
-            {PHOTO_LAYOUT === "overlap" ? (
-              <div className="flex flex-col items-center gap-3 sm:gap-4">
-                <Monogram />
-                <div className="flex items-start justify-center">
-                  <HeroPhoto
-                    src={wedding.heroImage}
-                    alt={NAMES_EN.groom}
-                    delay={0.55}
-                  />
-                  <HeroPhoto
-                    src={wedding.journeyImage}
-                    alt={NAMES_EN.bride}
-                    delay={0.7}
-                    flip
-                    className="z-20 -ml-5 mt-[clamp(1.5rem,6svh,3.5rem)] sm:-ml-8"
-                  />
-                </div>
-              </div>
-            ) : (
-              <div
-                className={`flex justify-center gap-2 sm:gap-5 md:gap-8 ${
-                  PHOTO_LAYOUT === "stagger" ? "items-start" : "items-end"
-                }`}
-              >
-                <HeroPhoto
-                  src={wedding.heroImage}
-                  alt={NAMES_EN.groom}
-                  delay={0.55}
-                />
-
-                <Monogram
-                  className={
-                    PHOTO_LAYOUT === "stagger" ? "self-center" : "self-end pb-2"
-                  }
-                />
-
-                <HeroPhoto
-                  src={wedding.journeyImage}
-                  alt={NAMES_EN.bride}
-                  delay={0.7}
-                  flip
-                  className={
-                    PHOTO_LAYOUT === "stagger"
-                      ? "mt-[clamp(1.5rem,7svh,4rem)]"
-                      : ""
-                  }
-                />
-              </div>
-            )}
-
-            <h1
-              className="mt-5 flex w-full flex-col items-center text-center sm:mt-6"
-              aria-label={`${NAMES_EN.groom} மற்றும் ${NAMES_EN.bride}`}
-            >
-              <span aria-hidden style={NAME_STYLE} className="text-[clamp(2.9rem,min(13.5vw,9.5svh),5.8rem)] leading-[1.15]">
-                <AnimatedName text={NAMES_EN.groom} delay={0.45} />
-              </span>
-
-              <motion.span
+          <h1
+            className="flex w-full flex-col items-center"
+            aria-label={`${NAMES.groom} மற்றும் ${NAMES.bride}`}
+          >
+            <Wipe active={active} delay={1.8} className="px-2 pb-2">
+              <span
                 aria-hidden
-                initial={reduce ? false : { opacity: 0, scaleX: 0.4 }}
-                animate={{ opacity: 1, scaleX: 1 }}
-                transition={{
-                  duration: reduce ? 0 : 1,
-                  delay: reduce ? 0 : 0.55,
-                  ease: EASE,
-                }}
-                className="flex items-center justify-center gap-3 sm:gap-5"
+                style={NAME_STYLE}
+                className="inline-block text-[clamp(2.9rem,min(13.5vw,9.5svh),5.8rem)] leading-[1.15] text-cream-200 drop-shadow-[0_4px_24px_rgba(0,0,0,0.6)]"
+              >
+                {NAMES.groom}
+              </span>
+            </Wipe>
+
+            <Rise active={active} delay={2.6}>
+              <span
+                aria-hidden
+                className="my-2 flex items-center justify-center gap-3 sm:gap-5"
               >
                 <span className="h-px w-8 bg-gradient-to-r from-transparent to-gold-400/80 sm:w-14" />
                 <span
-                  style={WEDS_STYLE}
+                  style={CONNECTOR_STYLE}
                   className="pl-[0.3em] text-[clamp(1rem,min(4.2vw,3.4svh),1.7rem)] lowercase tracking-[0.3em] text-gold-200"
                 >
                   மற்றும்
                 </span>
                 <span className="h-px w-8 bg-gradient-to-l from-transparent to-gold-400/80 sm:w-14" />
-              </motion.span>
-
-              <span aria-hidden style={NAME_STYLE} className="text-[clamp(2.9rem,min(13.5vw,9.5svh),5.8rem)] leading-[1.15]">
-                <AnimatedName text={NAMES_EN.bride} delay={0.7} />
               </span>
-            </h1>
+            </Rise>
 
-            <motion.p
-              initial={reduce ? false : { opacity: 0, y: 14 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{
-                duration: reduce ? 0 : 0.9,
-                delay: 0.9,
-                ease: EASE,
-              }}
-              className="mt-4 max-w-[18rem] text-center font-display text-sm italic text-cream-200/90 sm:mt-5 sm:max-w-xs sm:text-base md:max-w-md [@media(max-height:560px)]:hidden"
-            >
-              {wedding.tagline}
-            </motion.p>
-
-            <motion.div
-              initial={reduce ? false : { opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{
-                duration: reduce ? 0 : 0.9,
-                delay: 1.2,
-                ease: EASE,
-              }}
-              className="mt-5 flex flex-col items-center gap-2 sm:mt-6"
-            >
-              <div
-                className="mt-1 flex flex-col items-center gap-1 [@media(max-height:640px)]:hidden"
+            <Wipe active={active} delay={2.9} className="px-2 pb-2">
+              <span
                 aria-hidden
+                style={NAME_STYLE}
+                className="inline-block text-[clamp(2.9rem,min(13.5vw,9.5svh),5.8rem)] leading-[1.15] text-cream-200 drop-shadow-[0_4px_24px_rgba(0,0,0,0.6)]"
               >
-                <div className="h-6 w-px bg-gradient-to-b from-gold-400/80 to-transparent sm:h-7" />
-                <svg
-                  width="11"
-                  height="7"
-                  viewBox="0 0 12 7"
-                  className="text-gold-400/70"
-                  fill="none"
-                >
-                  <path
-                    d="M1 1l5 5 5-5"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </div>
-            </motion.div>
-          </div>
-        </div>
-      )}
+                {NAMES.bride}
+              </span>
+            </Wipe>
+          </h1>
 
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[23] h-20 bg-gradient-to-t from-maroon-950 to-transparent sm:h-24" />
+          <Rise active={active} delay={3.4}>
+            <p className="mt-5 max-w-[18rem] font-display text-sm italic text-cream-200/90 sm:max-w-xs sm:text-base md:max-w-md">
+              {wedding.tagline}
+            </p>
+          </Rise>
+
+          <Rise
+            active={active}
+            delay={4.2}
+            className="absolute top-10 left-0 right-0 text-center"
+          >
+            <p className="text-[10px] uppercase tracking-[0.4em] text-cream-200/60">
+              Chapter One
+            </p>
+          </Rise>
+        </Layer>
+
+        {/* Scene 2: bride, slides up over the groom */}
+        <Layer
+          index={1}
+          t={scrollYProgress}
+          src={wedding.journeyImage}
+          alt={NAMES.bride}
+          position="center 25%"
+          reduce={reduce}
+          active={active}
+        >
+          <Rise active={active} delay={0.2}>
+            <div className="mb-4 flex items-center justify-center gap-3">
+              <span className="h-px w-10 bg-gold-400/70" />
+              <Flourish width={72} />
+              <span className="h-px w-10 bg-gold-400/70" />
+            </div>
+          </Rise>
+
+          <Rise active={active} delay={0.4}>
+            <p className="max-w-[20rem] font-display text-xl italic leading-relaxed text-cream-100 sm:max-w-md sm:text-3xl">
+              {wedding.heroLine}
+            </p>
+          </Rise>
+
+          <Rise active={active} delay={0.7}>
+            <p className="mt-6 text-xs uppercase tracking-[0.35em] text-gold-300/80">
+              Frame by frame, moment by moment
+            </p>
+          </Rise>
+        </Layer>
+
+        {/* Scene 3: event details, slides up over the bride */}
+        <Layer
+          index={2}
+          t={scrollYProgress}
+          src="/images/gallery-3.jpg"
+          alt=""
+          reduce={reduce}
+          active={active}
+        >
+          <Rise
+            active={active}
+            delay={0.2}
+            className="relative w-full max-w-md px-6 py-8 sm:px-10 sm:py-10"
+          >
+            <Corner className="absolute -left-1 -top-1 opacity-90" size={28} />
+            <Corner className="absolute -right-1 -top-1 -scale-x-100 opacity-90" size={28} />
+            <Corner className="absolute -bottom-1 -left-1 -scale-y-100 opacity-90" size={28} />
+            <Corner className="absolute -bottom-1 -right-1 -scale-100 opacity-90" size={28} />
+
+            <p className="mb-5 text-[10px] font-semibold tracking-[0.25em] text-gold-300/90 sm:text-xs">
+              நிச்சயதார்த்தம்
+            </p>
+
+            <div className="flex flex-col gap-3 text-cream-100">
+              <p className="text-base sm:text-lg">
+                {`நிச்சயதார்த்தம்: ${engagement.day}`}
+              </p>
+              <p className="text-base sm:text-lg">
+                {`${engagement.venue}, ${wedding.city}`}
+              </p>
+              <p className="text-base sm:text-lg">
+                {`விழா நேரம்: ${engagement.time}`}
+              </p>
+              <p className="text-sm text-cream-200/80 sm:text-base">
+                {engagement.address}
+              </p>
+            </div>
+
+            <p className="mt-6 font-display text-sm italic text-gold-200 sm:text-base">
+              அன்புடன் வரவேற்கிறோம்
+            </p>
+
+            <p className="mt-8 font-display text-sm italic text-cream-200/70 sm:text-base">
+              To be continued…
+            </p>
+          </Rise>
+        </Layer>
+
+        {!reduce && (
+          <>
+            {/* Scroll progress line */}
+            <motion.div
+              aria-hidden
+              className="absolute left-0 top-0 z-[50] h-[2px] w-full origin-left bg-gold-400"
+              style={{ scaleX: scrollYProgress }}
+            />
+
+            {/* Opening: fade up from black */}
+            <motion.div
+              aria-hidden
+              className="pointer-events-none absolute inset-0 z-[60] bg-black"
+              initial={{ opacity: 1 }}
+              animate={{ opacity: active ? 0 : 1 }}
+              transition={{ duration: 2.2, ease: EASE }}
+            />
+
+            {/* Letterbox bars */}
+            <motion.div
+              aria-hidden
+              className="pointer-events-none absolute inset-x-0 top-0 z-[55] bg-black"
+              initial={{ height: "50svh" }}
+              animate={{ height: active ? "0svh" : "12svh" }}
+              transition={{ duration: 2.4, delay: 0.3, ease: EASE }}
+            />
+            <motion.div
+              aria-hidden
+              className="pointer-events-none absolute inset-x-0 bottom-0 z-[55] bg-black"
+              initial={{ height: "50svh" }}
+              animate={{ height: active ? "0svh" : "12svh" }}
+              transition={{ duration: 2.4, delay: 0.3, ease: EASE }}
+            />
+
+            {active && (
+              <div className="pointer-events-none absolute inset-0 z-[45] overflow-hidden">
+                <GoldMotes count={5} />
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 }

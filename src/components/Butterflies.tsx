@@ -2,14 +2,16 @@ import { useEffect, useMemo, useRef } from "react";
 import { useReducedMotion } from "framer-motion";
 
 interface ButterfliesProps {
-  /** How many butterflies fly together. */
+  /** How many butterflies fly around the screen. */
   count?: number;
   /** Largest butterfly size in px (they shrink on small screens). */
   maxSize?: number;
   /** Fade out over text, photos and buttons so they never hide content. */
   avoidContent?: boolean;
-  /** Little hearts float up when two butterflies come close. */
+  /** Hearts float up from the butterflies. */
   hearts?: boolean;
+  /** 0 to 2. Higher values release more hearts. */
+  heartRate?: number;
 }
 
 interface Palette {
@@ -30,19 +32,26 @@ const PALETTES: Palette[] = [
   { light: "#fbf1dc", mid: "#e2c58a", dark: "#6b3a2a", edge: "#3a1c14", spot: "#fffaf0", body: "#24100a" },
 ];
 
-/* Slightly different size and wingbeat for each butterfly, so they look natural. */
-const SIZE_MULTS = [1, 0.88, 0.96, 0.8, 0.92];
-const FLAP_HZ = [8.5, 9.5, 8.8, 10, 9.1];
-const FLUTTER_HZ = [2.1, 2.6, 2.3, 2.8, 2.4];
+/* Each butterfly gets its own size, wingbeat, speed and wobble. */
+const SIZE_MULTS = [1, 0.88, 0.96, 0.8, 0.92, 1.05];
+const FLAP_HZ = [8.5, 9.5, 8.8, 10, 9.1, 9.6];
+const SPEED_MULTS = [1, 0.8, 1.15, 0.9, 1.3, 0.95];
+const WOBBLE_HZ = [1.9, 2.4, 2.1, 2.8, 2.3, 2.6];
 
-const HEART_COLORS = ["#e8909f", "#f2dfa6", "#d4546f", "#fff0f3"];
-const HEART_POOL = 100;
+const HEART_COLORS = ["#e8909f", "#f2dfa6", "#d4546f", "#fff0f3", "#f5b5c2"];
+const HEART_POOL = 160;
+
+const HEART_PATH =
+  "M12 21s-7-4.6-9.3-9C1.2 9 2.4 5.5 5.7 5.2c2-.2 3.6.8 4.3 2.1.7-1.3 2.3-2.3 4.3-2.1 3.3.3 4.5 3.8 3 6.8C19 16.4 12 21 12 21z";
 
 interface Bird {
   x: number;
   y: number;
   vx: number;
   vy: number;
+  tx: number;
+  ty: number;
+  retargetIn: number;
   angle: number;
   t: number;
   phase: number;
@@ -52,6 +61,7 @@ interface Bird {
   op: number;
   age: number;
   over: boolean;
+  heartIn: number;
 }
 
 interface Heart {
@@ -61,13 +71,15 @@ interface Heart {
   max: number;
   sway: number;
   rot: number;
+  scale: number;
   alive: boolean;
 }
 
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
 
-const squeeze = (sx: number) => `translate(50 0) scale(${sx} 1) translate(-50 0)`;
+const squeeze = (sx: number) =>
+  `translate(50 0) scale(${sx} 1) translate(-50 0)`;
 
 /* ── Content detection: what a butterfly should not cover ────────────── */
 
@@ -108,7 +120,7 @@ function coversContent(x: number, y: number, size: number): boolean {
   return false;
 }
 
-/* ── Right-hand wings (the left side is a mirror copy) ───────────────── */
+/* ── Wings (the left side is a mirror copy of the right) ─────────────── */
 
 function ForeWing({ id, p }: { id: string; p: Palette }) {
   return (
@@ -165,19 +177,20 @@ function HindWing({ id, p }: { id: string; p: Palette }) {
 /* ══════════════════════════════════════════════════════════════════════ */
 
 /*
- * A flock of butterflies in love. An invisible "guide" point wanders slowly
- * across the screen, and the butterflies circle it together, spreading out
- * and swirling back in. When two of them come close, little hearts float
- * up between them.
+ * A flock of butterflies in love. Each one wanders across the whole screen
+ * on its own winding path, pausing to flutter now and then. It releases
+ * hearts as it flies, and when two meet, a burst of hearts floats up.
  */
 export default function Butterflies({
-  count = 5,
+  count = 6,
   maxSize = 110,
   avoidContent = true,
   hearts = true,
+  heartRate = 1,
 }: ButterfliesProps) {
   const reduce = useReducedMotion();
   const n = Math.max(1, Math.round(count));
+  const rate = clamp(heartRate, 0, 2);
 
   const flock = useMemo(
     () =>
@@ -185,8 +198,8 @@ export default function Butterflies({
         palette: PALETTES[i % PALETTES.length],
         sizeMul: SIZE_MULTS[i % SIZE_MULTS.length],
         flapHz: FLAP_HZ[i % FLAP_HZ.length],
-        flutterHz: FLUTTER_HZ[i % FLUTTER_HZ.length],
-        ringMul: 0.85 + 0.3 * Math.abs(Math.sin(i * 1.7 + 0.4)),
+        speedMul: SPEED_MULTS[i % SPEED_MULTS.length],
+        wobbleHz: WOBBLE_HZ[i % WOBBLE_HZ.length],
       })),
     [n]
   );
@@ -216,34 +229,38 @@ export default function Butterflies({
     };
     applySizes();
 
-    /* The invisible guide the flock circles around. */
-    const guide = { x: w * 0.5, y: h * 0.45, vx: 0, vy: 0, tx: w * 0.5, ty: h * 0.45 };
-
-    const pickGuideTarget = () => {
-      const m = Math.min(base * 3.6, w / 2 - 1, h / 2 - 1);
-      for (let k = 0; k < 6; k += 1) {
-        guide.tx = m + Math.random() * Math.max(1, w - m * 2);
-        guide.ty = m + Math.random() * Math.max(1, h - m * 2);
-        if (Math.hypot(guide.tx - guide.x, guide.ty - guide.y) > Math.min(w, h) * 0.3) break;
-      }
+    /* A random point inside the screen, kept away from the edges. */
+    const randomSpot = (s: number): [number, number] => {
+      const m = Math.min(s, w / 2 - 1, h / 2 - 1);
+      return [
+        m + Math.random() * Math.max(1, w - m * 2),
+        m + Math.random() * Math.max(1, h - m * 2),
+      ];
     };
-    pickGuideTarget();
 
-    const birds: Bird[] = flock.map((_, i) => ({
-      x: guide.x + Math.cos((i / n) * Math.PI * 2) * base,
-      y: guide.y + Math.sin((i / n) * Math.PI * 2) * base,
-      vx: 0,
-      vy: 0,
-      angle: Math.random() * 360,
-      t: Math.random() * 10,
-      phase: Math.random() * Math.PI * 2,
-      amp: 1,
-      flapping: true,
-      modeLeft: 0.8 + Math.random() * 1.5,
-      op: 0,
-      age: 0,
-      over: false,
-    }));
+    const birds: Bird[] = flock.map((_, i) => {
+      const [x, y] = randomSpot(base);
+      const [tx, ty] = randomSpot(base);
+      return {
+        x,
+        y,
+        vx: 0,
+        vy: 0,
+        tx,
+        ty,
+        retargetIn: 2 + Math.random() * 3,
+        angle: 0,
+        t: Math.random() * 10,
+        phase: Math.random() * Math.PI * 2,
+        amp: 1,
+        flapping: true,
+        modeLeft: 0.8 + Math.random() * 1.5,
+        op: 0,
+        age: -i * 0.35, // staggered entrance
+        over: false,
+        heartIn: 0.3 + Math.random() * 1.2,
+      };
+    });
 
     const heartPool: Heart[] = Array.from({ length: HEART_POOL }, () => ({
       x: 0,
@@ -252,17 +269,30 @@ export default function Butterflies({
       max: 1,
       sway: 0,
       rot: 0,
+      scale: 1,
       alive: false,
     }));
-    let heartTimer = 1.5;
     let heartIndex = 0;
+    let pairCooldown = 0.5;
+
+    const spawnHeart = (x: number, y: number, scale: number, life: number) => {
+      const hp = heartPool[heartIndex % HEART_POOL];
+      heartIndex += 1;
+      hp.x = x;
+      hp.y = y;
+      hp.life = 0;
+      hp.max = life;
+      hp.sway = Math.random() * Math.PI * 2;
+      hp.rot = (Math.random() - 0.5) * 40;
+      hp.scale = scale;
+      hp.alive = true;
+    };
 
     const onResize = () => {
       w = window.innerWidth;
       h = window.innerHeight;
       base = clamp(Math.min(w, h) * 0.14, 40, maxSize);
       applySizes();
-      pickGuideTarget();
     };
 
     let last = performance.now();
@@ -278,33 +308,16 @@ export default function Butterflies({
       });
     }, 140);
 
-    let t = 0;
-    let orbit = Math.random() * Math.PI * 2;
     let raf = 0;
 
     const frame = (now: number) => {
       /* Cap the step so a background tab never makes them jump. */
       const dt = Math.min((now - last) / 1000, 0.05);
       last = now;
-      t += dt;
 
-      /* 1. The guide drifts slowly to a new spot now and then. */
-      const gdx = guide.tx - guide.x;
-      const gdy = guide.ty - guide.y;
-      const gdist = Math.hypot(gdx, gdy) || 1;
-      if (gdist < 80) pickGuideTarget();
-      const gspeed = clamp(Math.max(w, h) * 0.045, 28, 80);
-      const gk = 1 - Math.exp(-dt * 0.8);
-      guide.vx += ((gdx / gdist) * gspeed - guide.vx) * gk;
-      guide.vy += ((gdy / gdist) * gspeed - guide.vy) * gk;
-      guide.x += guide.vx * dt;
-      guide.y += guide.vy * dt;
+      const baseSpeed = clamp(Math.min(w, h) * 0.16, 60, 220);
 
-      /* 2. The flock spreads out and swirls back in together. */
-      const spread = 0.5 + 0.5 * Math.sin(t * 0.55 - 1.2);
-      const radius = base * (0.85 + 2.1 * spread);
-      orbit += dt * (0.8 + 0.3 * Math.sin(t * 0.4));
-
+      /* 1. Each butterfly flies toward its own wandering target. */
       birds.forEach((b, i) => {
         const el = boxes.current[i];
         if (!el) return;
@@ -312,6 +325,17 @@ export default function Butterflies({
         const cfg = flock[i];
         const s = sizeOf(i);
         b.t += dt;
+        b.age += dt;
+
+        /* Pick a new destination when one is reached, times out, or is over content. */
+        const toTargetX = b.tx - b.x;
+        const toTargetY = b.ty - b.y;
+        const toTarget = Math.hypot(toTargetX, toTargetY);
+        b.retargetIn -= dt;
+        if (toTarget < s * 0.6 || b.retargetIn <= 0 || (b.over && b.retargetIn < 1)) {
+          [b.tx, b.ty] = randomSpot(s);
+          b.retargetIn = 2 + Math.random() * 3.5;
+        }
 
         /* Alternate between a burst of flapping and a calm glide. */
         b.modeLeft -= dt;
@@ -319,7 +343,7 @@ export default function Butterflies({
           b.flapping = !b.flapping;
           b.modeLeft = b.flapping ? 1 + Math.random() * 1.6 : 0.4 + Math.random() * 0.9;
         }
-        b.amp += ((b.flapping ? 1 : 0.12) - b.amp) * (1 - Math.exp(-dt * 5));
+        b.amp += ((b.flapping ? 1 : 0.15) - b.amp) * (1 - Math.exp(-dt * 5));
         b.phase += dt * cfg.flapHz * Math.PI * 2 * (0.3 + 0.7 * b.amp);
 
         /* Forewings lead; hindwings follow a beat behind. */
@@ -328,36 +352,26 @@ export default function Butterflies({
         fores.current[i]?.setAttribute("transform", squeeze(1 - 0.78 * b.amp * (1 - openFore)));
         hinds.current[i]?.setAttribute("transform", squeeze(1 - 0.7 * b.amp * (1 - openHind)));
 
-        /* Each butterfly takes its own place around the circle. */
-        const ang = orbit + (i / n) * Math.PI * 2;
-        const px = clamp(
-          guide.x + Math.cos(ang) * radius * 1.15 * cfg.ringMul,
-          s,
-          Math.max(s, w - s)
-        );
-        const py = clamp(
-          guide.y + Math.sin(ang) * radius * 0.8 * cfg.ringMul +
-            Math.sin(t * 1.3 + i * 2) * base * 0.18,
-          s,
-          Math.max(s, h - s)
-        );
+        /* Steer toward the target, with a sideways wobble so the path weaves. */
+        const speed = baseSpeed * cfg.speedMul * (b.over ? 1.4 : 1) * (0.5 + 0.5 * b.amp);
+        const dist = toTarget || 1;
+        const dirX = toTargetX / dist;
+        const dirY = toTargetY / dist;
+        const wobble = Math.sin(b.t * cfg.wobbleHz + i * 1.9) * speed * 0.45;
+        const desiredVx = dirX * speed + -dirY * wobble;
+        const desiredVy = dirY * speed + dirX * wobble;
 
-        const dx = px - b.x;
-        const dy = py - b.y;
-        const dist = Math.hypot(dx, dy) || 1;
-
-        /* Chase that spot, with a gentle flutter so the path weaves. */
-        const maxSpeed = clamp(Math.max(w, h) * 0.2, 120, 320);
-        const speed = Math.min(maxSpeed, dist * 3.2);
-        const flutter = Math.sin(b.t * cfg.flutterHz + i * 1.7) * speed * 0.22;
-        const desiredVx = (dx / dist) * speed + (-dy / dist) * flutter;
-        const desiredVy = (dy / dist) * speed + (dx / dist) * flutter;
-
-        const k = 1 - Math.exp(-dt * 3.4);
+        const k = 1 - Math.exp(-dt * 2.2);
         b.vx += (desiredVx - b.vx) * k;
         b.vy += (desiredVy - b.vy) * k;
         b.x += b.vx * dt;
         b.y += b.vy * dt;
+
+        /* Keep inside the screen. */
+        if (b.x < s / 2) { b.x = s / 2; b.vx = Math.abs(b.vx); }
+        if (b.x > w - s / 2) { b.x = w - s / 2; b.vx = -Math.abs(b.vx); }
+        if (b.y < s / 2) { b.y = s / 2; b.vy = Math.abs(b.vy); }
+        if (b.y > h - s / 2) { b.y = h - s / 2; b.vy = -Math.abs(b.vy); }
 
         /* Face the way it travels, turning the short way round. */
         if (Math.hypot(b.vx, b.vy) > 10) {
@@ -374,49 +388,67 @@ export default function Butterflies({
         }px, 0) rotate(${b.angle}deg)`;
 
         /* Fade in one by one at the start, and fade out over content. */
-        b.age += dt;
-        const target = b.age < i * 0.4 ? 0 : b.over ? 0.08 : 1;
+        const target = b.age < 0 ? 0 : b.over ? 0.08 : 1;
         b.op += (target - b.op) * (1 - Math.exp(-dt * (b.over ? 7 : 2.5)));
         el.style.opacity = b.op.toFixed(3);
-      });
 
-      /* 3. Hearts drift up when two butterflies are close together. */
-      if (hearts) {
-        heartTimer -= dt;
-
-        let bestI = -1;
-        let bestJ = -1;
-        let bestD = Infinity;
-        for (let i = 0; i < birds.length; i += 1) {
-          for (let j = i + 1; j < birds.length; j += 1) {
-            const a = birds[i];
-            const c = birds[j];
-            if (a.over || c.over || a.op < 0.8 || c.op < 0.8) continue;
-            const d = Math.hypot(a.x - c.x, a.y - c.y);
-            if (d < bestD) {
-              bestD = d;
-              bestI = i;
-              bestJ = j;
-            }
+        /* Each butterfly releases its own hearts while it is visible. */
+        if (hearts && rate > 0 && b.op > 0.5 && !b.over) {
+          b.heartIn -= dt;
+          if (b.heartIn <= 0) {
+            spawnHeart(
+              b.x + (Math.random() - 0.5) * s * 0.4,
+              b.y - s * 0.2,
+              clamp(s * 0.22, 9, 22) / 16 * (0.7 + Math.random() * 0.6),
+              2.4 + Math.random() * 1.6
+            );
+            b.heartIn = (0.5 + Math.random() * 0.9) / rate;
           }
         }
+      });
 
-        if (heartTimer <= 0 && bestI >= 0 && bestD < base * 2.8) {
-          const a = birds[bestI];
-          const c = birds[bestJ];
-          const hp = heartPool[heartIndex % HEART_POOL];
-          heartIndex += 1;
-          hp.x = (a.x + c.x) / 2 + (Math.random() - 0.5) * base * 0.5;
-          hp.y = (a.y + c.y) / 2 - base * 0.2;
-          hp.life = 0;
-          hp.max = 2.2 + Math.random() * 1.2;
-          hp.sway = Math.random() * Math.PI * 2;
-          hp.rot = (Math.random() - 0.5) * 30;
-          hp.alive = true;
-          heartTimer = 0.45 + Math.random() * 0.45;
+      /* 2. Two butterflies meeting release a burst of hearts. */
+      if (hearts && rate > 0) {
+        pairCooldown -= dt;
+        if (pairCooldown <= 0) {
+          let bestI = -1;
+          let bestJ = -1;
+          let bestD = Infinity;
+          for (let i = 0; i < birds.length; i += 1) {
+            for (let j = i + 1; j < birds.length; j += 1) {
+              const a = birds[i];
+              const c = birds[j];
+              if (a.over || c.over || a.op < 0.8 || c.op < 0.8) continue;
+              const d = Math.hypot(a.x - c.x, a.y - c.y);
+              if (d < bestD) {
+                bestD = d;
+                bestI = i;
+                bestJ = j;
+              }
+            }
+          }
+
+          if (bestI >= 0 && bestD < base * 2) {
+            const a = birds[bestI];
+            const c = birds[bestJ];
+            const mx = (a.x + c.x) / 2;
+            const my = (a.y + c.y) / 2;
+            const burst = 3 + Math.floor(Math.random() * 3);
+            for (let k = 0; k < burst; k += 1) {
+              spawnHeart(
+                mx + (Math.random() - 0.5) * base * 0.8,
+                my + (Math.random() - 0.5) * base * 0.5,
+                clamp(base * 0.3, 10, 24) / 16 * (0.8 + Math.random() * 0.6),
+                2.6 + Math.random() * 1.4
+              );
+            }
+          }
+          pairCooldown = (0.9 + Math.random() * 1.2) / rate;
         }
+      }
 
-        const heartScale = clamp(base * 0.3, 10, 16) / 16;
+      /* 3. Hearts drift up, sway and fade. */
+      if (hearts) {
         heartPool.forEach((hp, i) => {
           const el = heartEls.current[i];
           if (!el) return;
@@ -434,12 +466,12 @@ export default function Butterflies({
             return;
           }
 
-          hp.y -= dt * (22 + 18 * p);
-          const x = hp.x + Math.sin(hp.life * 2.2 + hp.sway) * 8;
-          const grow = (0.55 + 0.6 * Math.min(1, p * 2.5)) * heartScale;
+          hp.y -= dt * (26 + 22 * p);
+          const x = hp.x + Math.sin(hp.life * 2.4 + hp.sway) * 10;
+          const grow = (0.5 + 0.7 * Math.min(1, p * 2.5)) * hp.scale;
 
           el.style.transform = `translate3d(${x - 8}px, ${hp.y - 8}px, 0) rotate(${hp.rot}deg) scale(${grow})`;
-          el.style.opacity = (Math.sin(Math.PI * p) * 0.9).toFixed(3);
+          el.style.opacity = (Math.sin(Math.PI * p) * 0.95).toFixed(3);
         });
       }
 
@@ -456,7 +488,7 @@ export default function Butterflies({
       window.removeEventListener("resize", onResize);
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [reduce, flock, n, maxSize, avoidContent, hearts]);
+  }, [reduce, flock, n, maxSize, avoidContent, hearts, rate]);
 
   if (reduce) return null;
 
@@ -477,7 +509,7 @@ export default function Butterflies({
             style={{ opacity: 0, color: HEART_COLORS[i % HEART_COLORS.length] }}
           >
             <svg viewBox="0 0 24 24" className="h-full w-full" fill="currentColor">
-              <path d="M12 21s-7-4.6-9.3-9C1.2 9 2.4 5.5 5.7 5.2c2-.2 3.6.8 4.3 2.1.7-1.3 2.3-2.3 4.3-2.1 3.3.3 4.5 3.8 3 6.8C19 16.4 12 21 12 21z" />
+              <path d={HEART_PATH} />
             </svg>
           </div>
         ))}

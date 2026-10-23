@@ -18,14 +18,6 @@ const LINKS = [
   { id: "gallery", label: "படங்கள்", icon: Images },
 ].map((l) => ({ ...l, href: `#${l.id}` }));
 
-/* Side-rail text. Move these to your data file when convenient. */
-const SIDE_NOTES = [
-  { part: "பகுதி 02", title: "இறைவன் எழுதிய காதல் கதை" },
-  { part: "பகுதி 04", title: "கயிற்றில் தொங்கும் தருணங்கள்" },
-];
-const SIDE_FOOTER = "இனிய நினை";
-const SIDE_DATE = "15 நவ";
-
 export default function Navbar({ visible }: { visible: boolean }) {
   const [active, setActive] = useState<string>(LINKS[0].id);
 
@@ -35,8 +27,7 @@ export default function Navbar({ visible }: { visible: boolean }) {
     const update = () => {
       frame = 0;
 
-      // At the very bottom (for example, the blessing section after the last link),
-      // highlight the last link.
+      // At the very bottom, highlight the last link.
       const nearBottom =
         window.innerHeight + window.scrollY >=
         document.documentElement.scrollHeight - 80;
@@ -76,14 +67,21 @@ export default function Navbar({ visible }: { visible: boolean }) {
       <nav
         aria-label="பிரிவுகள்"
         className={`fixed inset-y-0 left-0 z-50 hidden w-[92px] flex-col items-center overflow-y-auto overscroll-contain border-r border-gold-500/25 bg-[#170309]/92 pb-3 backdrop-blur-md transition-all duration-700 ease-[cubic-bezier(.22,1,.36,1)] md:flex ${
-          visible ? "translate-x-0 opacity-100" : "-translate-x-[110%] opacity-0 pointer-events-none"
+          visible
+            ? "translate-x-0 opacity-100"
+            : "-translate-x-[110%] opacity-0 pointer-events-none"
         }`}
       >
-        <a href="#hero" className="group flex shrink-0 flex-col items-center gap-1 pb-2 pt-5">
+        <a
+          href="#hero"
+          className="group flex shrink-0 flex-col items-center gap-1 pb-2 pt-5"
+        >
           <div className="flex h-14 w-14 items-center justify-center rounded-full border border-gold-500/35 bg-[#1c040a] transition-transform duration-500 group-hover:scale-105">
             <MonogramCrest size={46} />
           </div>
-          <span className="mt-1 font-display text-[11px] leading-none text-gold-200">அழைப்பிதழ்</span>
+          <span className="mt-1 font-display text-[11px] leading-none text-gold-200">
+            அழைப்பிதழ்
+          </span>
         </a>
 
         <span
@@ -115,27 +113,12 @@ export default function Navbar({ visible }: { visible: boolean }) {
                 >
                   <Icon size={15} />
                 </span>
-                <span className="text-center text-[10px] font-medium leading-tight tracking-wide">{label}</span>
+                <span className="text-center text-[10px] font-medium leading-tight tracking-wide">
+                  {label}
+                </span>
               </a>
             );
           })}
-        </div>
-
-        <div className="mt-4 shrink-0 space-y-2 px-2 text-center text-xs leading-snug text-cream-300/70">
-          {SIDE_NOTES.map((n) => (
-            <p key={n.part}>
-              {n.part}
-              <br />
-              {n.title}
-            </p>
-          ))}
-          <p>{SIDE_FOOTER}</p>
-        </div>
-
-        <div className="mt-6 w-full shrink-0 px-2">
-          <p className="border-t border-dashed border-gold-500/30 pt-3 text-center text-[9px] tracking-widest text-gold-300/60">
-            {SIDE_DATE}
-          </p>
         </div>
       </nav>
 
@@ -143,7 +126,9 @@ export default function Navbar({ visible }: { visible: boolean }) {
       <nav
         aria-label="பிரிவுகள்"
         className={`fixed inset-x-0 bottom-0 z-50 border-t border-gold-500/30 bg-[#170309]/96 backdrop-blur-md transition-all duration-500 md:hidden ${
-          visible ? "translate-y-0 opacity-100" : "translate-y-[110%] opacity-0 pointer-events-none"
+          visible
+            ? "translate-y-0 opacity-100"
+            : "translate-y-[110%] opacity-0 pointer-events-none"
         }`}
         style={{ paddingBottom: "max(env(safe-area-inset-bottom), 4px)" }}
       >
@@ -157,7 +142,9 @@ export default function Navbar({ visible }: { visible: boolean }) {
                 href={href}
                 aria-current={isActive ? "true" : undefined}
                 className={`relative flex min-w-0 flex-col items-center gap-0.5 py-2 transition-colors duration-300 ${
-                  isActive ? "text-gold-200" : "text-cream-300/60 active:text-gold-200"
+                  isActive
+                    ? "text-gold-200"
+                    : "text-cream-300/60 active:text-gold-200"
                 }`}
               >
                 {isActive && (
