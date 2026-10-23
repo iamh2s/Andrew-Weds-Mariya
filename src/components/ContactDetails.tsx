@@ -21,12 +21,12 @@ const FAMILIES = [
   {
     label: "மணமகன் குடும்பம்",
     name: "மணமகன் குடும்பத்தினர்",
-    phone: "",
+    phone: "79495 38434",
   },
   {
     label: "மணமகள் குடும்பம்",
     name: "மணமகள் குடும்பத்தினர்",
-    phone: "",
+    phone: "79495 38434",
   },
 ];
 
@@ -36,7 +36,6 @@ export default function ContactPanel({
 }: ContactPanelProps) {
   const engagement = wedding.engagement;
 
-  // Close the drawer with Escape and lock background scrolling.
   useEffect(() => {
     if (!open) return;
 
@@ -58,7 +57,7 @@ export default function ContactPanel({
     <AnimatePresence>
       {open && (
         <>
-          {/* Backdrop: above Navbar and Music button */}
+          {/* Backdrop */}
           <motion.button
             type="button"
             aria-label="தொடர்பு சாளரத்தை மூடு"
@@ -99,7 +98,7 @@ export default function ContactPanel({
                 type="button"
                 onClick={onClose}
                 aria-label="தொடர்பு விவரங்களை மூடு"
-                className="relative z-20 flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[#c9a45c]/60 bg-[#2b0711] text-[#e5c77c] transition-colors hover:bg-[#4a1020] hover:text-white focus:outline-none focus:ring-2 focus:ring-[#e5c77c]"
+                className="relative z-20 flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[#c9a45c]/60 bg-[#2b0711] text-[#e5c77c] transition hover:bg-[#4a1020] hover:text-white focus:outline-none focus:ring-2 focus:ring-[#e5c77c]"
               >
                 <X size={23} strokeWidth={2.2} />
               </button>
@@ -115,14 +114,8 @@ export default function ContactPanel({
               {/* Family contact cards */}
               <div className="mt-6 flex flex-col gap-4">
                 {FAMILIES.map((family) => {
-                  const cleanPhone = family.phone.replace(
-                    /[^\d+]/g,
-                    ""
-                  );
-                  const whatsappPhone = family.phone.replace(
-                    /\D/g,
-                    ""
-                  );
+                  const cleanPhone = family.phone.replace(/\D/g, "");
+                  const whatsappPhone = cleanPhone;
 
                   return (
                     <section
@@ -137,37 +130,35 @@ export default function ContactPanel({
                         {family.name}
                       </p>
 
-                      {family.phone ? (
-                        <>
-                          <p className="mt-2 text-sm tracking-wider text-[#f5e7bf]/80">
-                            {family.phone}
-                          </p>
+                      <a
+                        href={`tel:${cleanPhone}`}
+                        className="mt-3 flex items-center gap-2 text-sm tracking-wider text-[#f5e7bf]/90 transition hover:text-[#e5c77c]"
+                      >
+                        <Phone size={16} className="text-[#e5c77c]" />
+                        {family.phone}
+                      </a>
 
-                          <div className="mt-4 grid grid-cols-2 gap-3">
-                            <a
-                              href={`tel:${cleanPhone}`}
-                              className="flex min-h-11 items-center justify-center gap-2 border border-[#c9a45c]/50 px-3 py-3 text-sm text-[#e5c77c] transition hover:bg-[#c9a45c] hover:text-[#21060e]"
-                            >
-                              <Phone size={16} />
-                              அழை
-                            </a>
+                      <div className="mt-4 grid grid-cols-2 gap-3">
+                        {/* Call button */}
+                        <a
+                          href={`tel:${cleanPhone}`}
+                          className="flex min-h-12 items-center justify-center gap-2 border border-[#c9a45c]/60 bg-[#c9a45c]/10 px-3 py-3 text-sm font-semibold text-[#e5c77c] transition hover:bg-[#c9a45c] hover:text-[#21060e]"
+                        >
+                          <Phone size={16} />
+                          அழை
+                        </a>
 
-                            <a
-                              href={`https://wa.me/${whatsappPhone}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex min-h-11 items-center justify-center gap-2 border border-[#c9a45c]/50 px-3 py-3 text-sm text-[#e5c77c] transition hover:bg-[#c9a45c] hover:text-[#21060e]"
-                            >
-                              <MessageCircle size={16} />
-                              செய்தி
-                            </a>
-                          </div>
-                        </>
-                      ) : (
-                        <p className="mt-2 text-xs text-[#f5e7bf]/50">
-                          79495 38434
-                        </p>
-                      )}
+                        {/* WhatsApp button */}
+                        <a
+                          href={`https://wa.me/${whatsappPhone}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex min-h-12 items-center justify-center gap-2 border border-[#c9a45c]/60 px-3 py-3 text-sm font-semibold text-[#e5c77c] transition hover:bg-[#c9a45c] hover:text-[#21060e]"
+                        >
+                          <MessageCircle size={16} />
+                          WhatsApp
+                        </a>
+                      </div>
                     </section>
                   );
                 })}
@@ -188,10 +179,7 @@ export default function ContactPanel({
                   </p>
 
                   <a
-                    href={mapsLink(
-                      engagement.venue,
-                      engagement.address
-                    )}
+                    href={mapsLink(engagement.venue, engagement.address)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="mt-5 flex min-h-12 items-center justify-center gap-2 border border-[#c9a45c]/50 px-4 py-3 text-sm text-[#e5c77c] transition hover:bg-[#c9a45c] hover:text-[#21060e]"
@@ -202,11 +190,10 @@ export default function ContactPanel({
                 </section>
               </div>
 
-              {/* Gold divider */}
               <div className="my-8 h-px w-full bg-gradient-to-r from-transparent via-[#c9a45c]/70 to-transparent" />
             </div>
 
-            {/* Fixed drawer footer */}
+            {/* Footer */}
             <footer className="shrink-0 border-t border-[#c9a45c]/25 bg-[#21060e] px-5 py-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:px-7">
               <p className="text-center font-serif text-sm leading-relaxed text-[#e5c77c]/80">
                 அனைவரையும் அன்புடன் வரவேற்கிறோம்
