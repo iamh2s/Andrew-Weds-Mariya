@@ -1,3 +1,4 @@
+
 import { useMemo, useRef } from "react";
 import type { MotionValue, ReactNode } from "react";
 import {
@@ -206,12 +207,12 @@ function Layer({
             }
       }
     >
-      {/* Entering edge shadow, so the slide reads as a cut */}
+      {/* Entering edge shadow */}
       {!isBase && !reduce && (
         <div className="pointer-events-none absolute inset-x-0 -top-24 z-[5] h-24 bg-gradient-to-t from-transparent to-black/70" />
       )}
 
-      {/* Opening pull-back: close zoom that eases out to normal */}
+      {/* Opening pull-back */}
       <motion.div
         className="absolute inset-0"
         initial={introPlays ? { scale: 1.4 } : false}
@@ -294,7 +295,7 @@ export default function Hero({ active }: { active: boolean }) {
           t={scrollYProgress}
           src={wedding.heroImage}
           alt={NAMES.groom}
-          position="center 25%"
+          position="center 32%"
           reduce={reduce}
           active={active}
           opening
@@ -388,7 +389,7 @@ export default function Hero({ active }: { active: boolean }) {
           t={scrollYProgress}
           src={wedding.journeyImage}
           alt={NAMES.bride}
-          position="center 25%"
+          position="center 50%"
           reduce={reduce}
           active={active}
         >
@@ -487,6 +488,7 @@ export default function Hero({ active }: { active: boolean }) {
               animate={{ height: active ? "0svh" : "12svh" }}
               transition={{ duration: 2.4, delay: 0.3, ease: EASE }}
             />
+
             <motion.div
               aria-hidden
               className="pointer-events-none absolute inset-x-0 bottom-0 z-[55] bg-black"
