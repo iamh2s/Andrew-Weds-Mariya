@@ -165,7 +165,7 @@ export default function ContactPanel({
                         </>
                       ) : (
                         <p className="mt-2 text-xs text-[#f5e7bf]/50">
-                          தொடர்பு எண் சேர்க்கப்படவில்லை
+                          79495 38434
                         </p>
                       )}
                     </section>
