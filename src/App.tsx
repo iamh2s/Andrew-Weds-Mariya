@@ -1,7 +1,9 @@
+
 import { useCallback, useEffect, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 
 import Intro from "./components/Intro";
+import ContactPanel from "./components/ContactDetails";
 import Navbar from "./components/Navbar";
 import Hero from "./components/Hero";
 import Marquee from "./components/Marquee";
@@ -14,7 +16,11 @@ import MusicButton from "./components/MusicButton";
 import Butterflies from "./components/Butterflies";
 import ScrollIndicator from "./components/ScrollIndicator";
 
-import { ScrollProgress, GrainOverlay, ViewportFrame } from "./components/fx";
+import {
+  ScrollProgress,
+  GrainOverlay,
+  ViewportFrame,
+} from "./components/fx";
 
 import { useIdleAutoScroll } from "./hooks/useIdleAutoScroll";
 
@@ -42,10 +48,7 @@ function lockPageScroll() {
   document.body.style.setProperty("overflow", "hidden");
 }
 
-/**
- * End-of-page hint. It fades in once the intro ends, so it doesn't depend
- * on scroll detection. It sits above the footer with its own stacking order.
- */
+/** End-of-page scroll hint. */
 function EndScrollHint({ visible }: { visible: boolean }) {
   const reduce = useReducedMotion();
 
@@ -59,19 +62,21 @@ function EndScrollHint({ visible }: { visible: boolean }) {
       <p className="text-[11px] font-semibold uppercase tracking-[0.35em] text-gold-300">
         Scroll down
       </p>
+
       <p
         className="text-sm text-cream-200/85"
         style={{ fontFamily: '"Noto Serif Tamil", "Tiro Tamil", serif' }}
       >
         கீழே உருட்டவும்
       </p>
+
       <svg
         width="14"
         height="8"
         viewBox="0 0 14 8"
         fill="none"
         className="mt-1 animate-bounce text-gold-400"
-        aria-hidden
+        aria-hidden="true"
       >
         <path
           d="M1 1l6 6 6-6"
@@ -87,6 +92,8 @@ function EndScrollHint({ visible }: { visible: boolean }) {
 
 export default function App() {
   const [phase, setPhase] = useState<Phase>("intro");
+  const [contactOpen, setContactOpen] = useState(false);
+
   const done = phase === "done";
 
   // Auto-scroll only after the intro finishes.
@@ -97,7 +104,7 @@ export default function App() {
     steps: 3,
   });
 
-  // Lock scrolling only while the intro is active.
+  // Lock scrolling while the intro is active.
   useEffect(() => {
     if (done) {
       unlockPageScroll();
@@ -122,10 +129,11 @@ export default function App() {
     setPhase("done");
   }, []);
 
-  // Native smooth scrolling for in-page anchor links.
+  // Smooth scrolling for in-page anchor links.
   useEffect(() => {
     const handleAnchorClick = (event: MouseEvent) => {
       const target = event.target;
+
       if (!(target instanceof Element)) return;
 
       const anchor = target.closest<HTMLAnchorElement>('a[href^="#"]');
@@ -135,15 +143,21 @@ export default function App() {
       if (!href || href === "#") return;
 
       let section: HTMLElement | null = null;
+
       try {
         section = document.querySelector<HTMLElement>(href);
       } catch {
         return;
       }
+
       if (!section) return;
 
       event.preventDefault();
-      section.scrollIntoView({ behavior: "smooth", block: "start" });
+
+      section.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
 
       if (window.location.hash !== href) {
         window.history.replaceState(null, "", href);
@@ -151,6 +165,7 @@ export default function App() {
     };
 
     document.addEventListener("click", handleAnchorClick);
+
     return () => {
       document.removeEventListener("click", handleAnchorClick);
     };
@@ -158,6 +173,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-maroon-950">
+      {/* Intro animation */}
       <AnimatePresence>
         {!done && (
           <Intro
@@ -168,17 +184,33 @@ export default function App() {
         )}
       </AnimatePresence>
 
+      {/* Global visual effects */}
       <ScrollProgress />
       <GrainOverlay />
       <ViewportFrame />
 
       {done && <Butterflies />}
 
-      <Navbar visible={done} />
+      {/* Navbar opens the contact drawer */}
+      <Navbar
+        visible={done}
+        onContactClick={() => setContactOpen(true)}
+      />
+
       <MusicButton visible={done} />
+
+      {/* Contact drawer remains available from the Navbar */}
+      <ContactPanel
+        open={contactOpen}
+        visible={done}
+        onOpen={() => setContactOpen(true)}
+        onClose={() => setContactOpen(false)}
+      />
+
       {done && <ScrollIndicator />}
 
-      <main className="md:pl-[92px] pb-24 md:pb-0">
+      {/* Main website sections */}
+      <main className="pb-24 md:pb-0 md:pl-[92px]">
         <section id="hero">
           <Hero active={done} />
         </section>

@@ -1,3 +1,4 @@
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Music, Pause } from "lucide-react";
 
@@ -5,43 +6,50 @@ const MUSIC_SRC = "/images/music.mp3";
 
 type MusicButtonProps = {
   visible: boolean;
+  contactOpen?: boolean;
 };
 
-export default function MusicButton({ visible }: MusicButtonProps) {
+export default function MusicButton({
+  visible,
+  contactOpen = false,
+}: MusicButtonProps) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const turnedOffRef = useRef(false); // true after the visitor taps pause
+  const turnedOffRef = useRef(false);
   const visibleRef = useRef(visible);
+
   const [playing, setPlaying] = useState(false);
   const [blocked, setBlocked] = useState(false);
 
-  // Keep the latest `visible` value available to event listeners.
+  // Keep the latest visibility state available to event listeners.
   useEffect(() => {
     visibleRef.current = visible;
   }, [visible]);
 
-  // Start playback. If the browser blocks it, wait for the visitor's next tap.
+  // Attempt to play the music.
   const tryPlay = useCallback(async () => {
     const audio = audioRef.current;
     if (!audio) return;
+
     try {
       await audio.play();
       setBlocked(false);
     } catch (error) {
       setBlocked(true);
-      console.info("Music waiting for a tap:", error);
+      console.info("Music waiting for a user gesture:", error);
     }
   }, []);
 
-  // Resume only if the invitation is open and the visitor didn't turn music off.
+  // Resume only when the invitation is visible and music was not disabled.
   const resumeIfAllowed = useCallback(() => {
     if (visibleRef.current && !turnedOffRef.current) {
       void tryPlay();
     }
   }, [tryPlay]);
 
-  // Create the audio element once and preload the file.
+  // Create and configure the audio element.
   useEffect(() => {
     const audio = new Audio(MUSIC_SRC);
+
     audio.loop = true;
     audio.preload = "auto";
     audioRef.current = audio;
@@ -50,7 +58,11 @@ export default function MusicButton({ visible }: MusicButtonProps) {
       setPlaying(true);
       setBlocked(false);
     };
-    const onPause = () => setPlaying(false);
+
+    const onPause = () => {
+      setPlaying(false);
+    };
+
     const onError = () => {
       setPlaying(false);
       console.error("Unable to load wedding music:", MUSIC_SRC);
@@ -69,8 +81,7 @@ export default function MusicButton({ visible }: MusicButtonProps) {
     };
   }, []);
 
-  // Start when the invitation opens, unless the visitor turned music off.
-  // Closing the invitation resets the song to the beginning.
+  // Start music when the invitation becomes visible.
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -87,27 +98,34 @@ export default function MusicButton({ visible }: MusicButtonProps) {
     }
   }, [visible, tryPlay]);
 
-  // If autoplay was blocked, the next tap or key press anywhere starts the music.
+  // Retry autoplay after the visitor interacts with the page.
   useEffect(() => {
     if (!blocked || !visible || turnedOffRef.current) return;
 
     const startOnGesture = () => {
-      if (!turnedOffRef.current) void tryPlay();
+      if (!turnedOffRef.current) {
+        void tryPlay();
+      }
     };
+
     const events = ["pointerdown", "keydown", "touchstart"] as const;
-    events.forEach((e) =>
-      window.addEventListener(e, startOnGesture, { once: true })
-    );
+
+    events.forEach((eventName) => {
+      window.addEventListener(eventName, startOnGesture, { once: true });
+    });
 
     return () => {
-      events.forEach((e) => window.removeEventListener(e, startOnGesture));
+      events.forEach((eventName) => {
+        window.removeEventListener(eventName, startOnGesture);
+      });
     };
   }, [blocked, visible, tryPlay]);
 
-  // Leaving the site or hiding the tab pauses the song and keeps its position.
-  // Coming back resumes it, unless the visitor turned it off.
+  // Handle tab visibility and page navigation.
   useEffect(() => {
-    const onPageHide = () => audioRef.current?.pause();
+    const onPageHide = () => {
+      audioRef.current?.pause();
+    };
 
     const onVisibilityChange = () => {
       if (document.hidden) {
@@ -117,9 +135,10 @@ export default function MusicButton({ visible }: MusicButtonProps) {
       }
     };
 
-    // Fires when the page is restored from the back-forward cache (Back button).
     const onPageShow = (event: PageTransitionEvent) => {
-      if (event.persisted) resumeIfAllowed();
+      if (event.persisted) {
+        resumeIfAllowed();
+      }
     };
 
     window.addEventListener("pagehide", onPageHide);
@@ -129,11 +148,14 @@ export default function MusicButton({ visible }: MusicButtonProps) {
     return () => {
       window.removeEventListener("pagehide", onPageHide);
       window.removeEventListener("pageshow", onPageShow);
-      document.removeEventListener("visibilitychange", onVisibilityChange);
+      document.removeEventListener(
+        "visibilitychange",
+        onVisibilityChange
+      );
     };
   }, [resumeIfAllowed]);
 
-  // Tap to pause (stays off) or tap to continue from the same position.
+  // Toggle playback without resetting the current song position.
   const toggle = () => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -147,21 +169,25 @@ export default function MusicButton({ visible }: MusicButtonProps) {
     }
   };
 
+  const buttonVisible = visible && !contactOpen;
+
   return (
     <div
-      className={`fixed right-3 top-3 z-[9998] transition-all duration-500 sm:right-5 sm:top-5 ${
-        visible
+      className={`fixed right-3 top-3 z-[100] transition-all duration-300 sm:right-5 sm:top-5 ${
+        buttonVisible
           ? "translate-y-0 opacity-100"
           : "pointer-events-none -translate-y-3 opacity-0"
       }`}
+      aria-hidden={!buttonVisible}
     >
       <button
         type="button"
         onClick={toggle}
+        disabled={!buttonVisible}
         aria-pressed={playing}
         aria-label={playing ? "Turn off music" : "Turn on music"}
         title={playing ? "Turn off music" : "Turn on music"}
-        className="group flex h-9 items-center gap-1.5 rounded-full border border-gold-400/40 bg-maroon-950/70 pl-1 pr-3 text-gold-200 shadow-[0_4px_12px_rgba(0,0,0,0.35)] backdrop-blur-sm transition hover:border-gold-300/70 active:scale-95 mt-6"
+        className="group mt-6 flex h-9 items-center gap-1.5 rounded-full border border-gold-400/40 bg-maroon-950/70 pl-1 pr-3 text-gold-200 shadow-[0_4px_12px_rgba(0,0,0,0.35)] backdrop-blur-sm transition hover:border-gold-300/70 active:scale-95"
       >
         <span
           className={`grid h-7 w-7 place-items-center rounded-full transition-all duration-300 ${
@@ -171,21 +197,29 @@ export default function MusicButton({ visible }: MusicButtonProps) {
           }`}
         >
           {playing ? (
-            <Pause className="h-3 w-3 fill-current" aria-hidden />
+            <Pause
+              className="h-3 w-3 fill-current"
+              aria-hidden="true"
+            />
           ) : (
-            <Music className="h-3 w-3" aria-hidden />
+            <Music className="h-3 w-3" aria-hidden="true" />
           )}
         </span>
 
         <span
           className="text-[11px] font-semibold leading-none"
-          style={{ fontFamily: '"Noto Serif Tamil", "Tiro Tamil", serif' }}
+          style={{
+            fontFamily: '"Noto Serif Tamil", "Tiro Tamil", serif',
+          }}
         >
           {playing ? "நிறுத்து" : "இசை"}
         </span>
 
         {playing && (
-          <span className="flex h-2.5 items-end gap-[1.5px]" aria-hidden>
+          <span
+            className="flex h-2.5 items-end gap-[1.5px]"
+            aria-hidden="true"
+          >
             {[0, 1, 2].map((i) => (
               <span
                 key={i}
@@ -200,7 +234,7 @@ export default function MusicButton({ visible }: MusicButtonProps) {
         )}
       </button>
 
-      {blocked && (
+      {blocked && buttonVisible && (
         <p className="mt-1 text-right text-[9px] text-cream-200/70">
           Tap anywhere to play
         </p>
